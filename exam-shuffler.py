@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!./venv/bin/python3
 import os
 import re
 import random
@@ -74,15 +74,15 @@ def question_in_same_pos(exam1, exam2):
 
 def exam_to_string(exam):
     """Return the exam's string representation"""
-    return "\n".join([f"**{i+1}.** {question_to_string(q)}" for i, q in enumerate(exam["questions"])])
+    return "\n\n".join([f"**{i+1}.** {question_to_string(q)}" for i, q in enumerate(exam["questions"])])
 
 def question_to_string(question):
     """Return the question's string representation"""
-    return question["statement"] + "\n" + "\n".join([f"{chr(i+65)}\\) {choice} \\" for i,choice in enumerate(question["choices"])])
+    return question["statement"] + "\\\n" + "\n".join([f"{chr(i+65)}\\) {choice} \\" for i,choice in enumerate(question["choices"])])
 
 def versions_to_string(versions):
     """Return the versions's string representation"""
-    return "\n\n".join([f"# Versão {i+1}\n\n {exam_to_string(v)} \\newpage" for i, v in enumerate(versions)])
+    return "\n\n".join([f"# Versão {i+1}\n\n {exam_to_string(v)}" for i, v in enumerate(versions)])
 
 def exam_from_file(file_name):
     """Return an exam from a file"""
