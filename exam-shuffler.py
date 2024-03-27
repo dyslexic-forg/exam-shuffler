@@ -4,16 +4,13 @@ import re
 import random
 import argparse
 import pypandoc
-from docx import Document
-from docxcompose.composer import Composer
 
-QUESTION_DELIMITER = r"^\s*\d+\.\s"
-CHOICE_DELIMITER = r"^\s*[a-zA-Z]\)\s"
-IMAGE_DELIMITER = r"\[\[.+:(.*)\]\]"
+QUESTION_DELIMITER = r"^\s*\d+\\\.\s"
+CHOICE_DELIMITER = r"^\s*[a-zA-Z]\\\)\s"
 ANSWER_INDICATOR = r"+"
 
 def parse_exam(string):
-    """Return a exam from a string"""
+    """Return an exam from a string"""
     parts = re.split(QUESTION_DELIMITER, string, flags=re.MULTILINE)
     return {
         "preamble": parts[0],
@@ -21,7 +18,7 @@ def parse_exam(string):
     }
 
 def parse_question(string, question_id):
-    """Return a question from a string"""
+    """Return an question from a string"""
     parts = re.split(CHOICE_DELIMITER, string, flags=re.MULTILINE)
     question = {
         "statement": parts[0],
@@ -53,7 +50,7 @@ def shuffle_exam(exam):
     }
 
 def get_answers(exam):
-    """Get the answers keys from a exam"""
+    """Get the answers keys from an exam"""
     return [
         chr(q["choices"].index(q["answer"])+65)
         if q["answer"] in q["choices"]
@@ -62,7 +59,7 @@ def get_answers(exam):
     ]
 
 def create_versions(exam, n=4):
-    """Create versions of a exam"""
+    """Create versions of an exam"""
     n = min(len(exam["questions"]), n)
     versions = []
     while len(versions) < n:
@@ -76,21 +73,28 @@ def question_in_same_pos(exam1, exam2):
     return any([q1["id"] == q2["id"] for q1, q2 in zip(exam1["questions"], exam2["questions"])])
 
 def exam_to_string(exam):
-    return "\n\n".join([f"*{i+1}*. {question_to_string(q)}" for i, q in enumerate(exam["questions"])])
+    """Return the exam's string representation"""
+    return "\n".join([f"**{i+1}.** {question_to_string(q)}" for i, q in enumerate(exam["questions"])])
 
 def question_to_string(question):
-    return question["statement"] + "\n".join([f"{chr(i+65)}) {choice}" for i,choice in enumerate(question["choices"])])
+    """Return the question's string representation"""
+    return question["statement"] + "\n" + "\n".join([f"{chr(i+65)}\\) {choice} \\" for i,choice in enumerate(question["choices"])])
+
+def versions_to_string(versions):
+    """Return the versions's string representation"""
+    return "\n\n".join([f"# Versão {i+1}\n\n {exam_to_string(v)} \\newpage" for i, v in enumerate(versions)])
 
 def exam_from_file(file_name):
-    string = pypandoc.convert_file(file_name, "org", extra_args=["--extract-media=."])
+    """Return an exam from a file"""
+    directory = os.path.dirname(file_name)
+    string = pypandoc.convert_file(file_name, "md", extra_args=[f"--extract-media={directory}"])
     exam = parse_exam(string)
     return exam
 
-def exam_to_file(exam, file_name, template=None):
-    extra_args = ["--lua-filter=filter.lua"]
-    if template:
-        extra_args.append(f"--reference-doc={template}")
-    pypandoc.convert_text(exam_to_string(exam), "docx", "org", outputfile=file_name, extra_args=extra_args)
+def versions_to_docx(versions, filename, template=None):
+    """Write exam versions in a docx file"""
+    extra_args = [f"--reference-doc={template}"] if template else []
+    pypandoc.convert_text(versions_to_string(versions), to="docx", format="md", outputfile=filename, extra_args=extra_args)
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -99,7 +103,6 @@ def parse_args():
     )
     parser.add_argument("filename", help="nome do arquivo")
     parser.add_argument("-n", "--number", type=int, default=4, help="número de versões a serem geradas")
-    parser.add_argument("-t", "--template", default=None, help="arquivo docx com formatação e cabeçalho")
     return parser.parse_args()
 
 def main():
@@ -107,16 +110,11 @@ def main():
     exam = exam_from_file(args.filename)
     versions = create_versions(exam, args.number)
 
-    directory, file_name_extension = os.path.split(args.filename)
-    file_name, _ = os.path.splitext(file_name_extension)
-    file_names = []
-    for i, version in enumerate(versions):
-        file_names.append(args.template)
-        version_file_name = os.path.join(directory, f"{file_name}-v{i+1}.docx")
-        print(version_file_name)
-        exam_to_file(version, version_file_name, args.template)
-        file_names.append(version_file_name)
-    combine_word_documents(file_names, os.path.join(directory, f"{file_name}-versions.docx"))
+    directory, name_ext = os.path.split(args.filename)
+    name, _ = os.path.splitext(name_ext)
+
+    versions_to_docx(versions, os.path.join(directory, f"{name}-versions.docx"), args.filename)
+    
 
 if __name__ == "__main__":
     main()
